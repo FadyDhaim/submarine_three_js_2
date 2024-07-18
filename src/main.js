@@ -6,7 +6,7 @@ import { SubmarineCamera } from './cameras/submarine_camera'
 import { AppSky } from './sky'
 import { AppSun } from './sun'
 import { AppWater } from './water'
-import { ACESFilmicToneMapping, AmbientLight, DirectionalLight, FogExp2, Scene, WebGLRenderer } from 'three'
+import { ACESFilmicToneMapping, AmbientLight, DirectionalLight, FogExp2, Mesh, MeshBasicMaterial, Scene, WebGLRenderer } from 'three'
 import { Underwater } from './underwater/underwater'
 
 
@@ -55,7 +55,6 @@ class SubmarineSimulationApp {
         const water = new AppWater(fogEnabled)
         scene.add(water)
         animatableComponents.push(water)
-
         const underwater = new Underwater()
         underwater.load().then((underwater) => {
             scene.add(underwater)
