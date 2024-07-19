@@ -81,9 +81,9 @@ class SubmarineSimulationApp {
         })
         
         // GUI        
-        const gui = new GUI()
-        water.showGui(gui)
-        sun.showGui(gui)
+        // const gui = new GUI()
+        // water.showGui(gui)
+        // sun.showGui(gui)
         
     }
 
