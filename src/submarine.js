@@ -33,7 +33,7 @@ const deceleratingBy = Object.freeze({
     closerToSurface:
         Symbol.for('closerToSurface'),
 })
-const guiSpeeds = {
+const guiVelocities = {
     forward: 0.0,
     angular: 0.0,
     submersion: 0.0,
@@ -76,17 +76,17 @@ export class Submarine {
                 yaw: 180 // 3 seconds
             }
         }
-        this.maximumSpeed = {
-            forward: 6.0,
+        this.maximumVelocity = {
+            forward: 3.0,
             submersion: -0.5,
-            angular: 0.01, //or yaw rotation speed / rotation around y, sweeping half a cycle in 5 seconds (3.14 / (0.01 * 60))
+            angular: 0.005, //or yaw rotation speed / rotation around y, sweeping half a cycle in 5 seconds (3.14 / (0.01 * 60))
         }
         this.maximumSelfRotation = {
             roll: Math.PI / 24, // 7.5 degrees
             pitch: Math.PI / 24 //7.5 degrees
         }
         this.initialDepth = -10.0
-        this.maximumDepth = -50.0
+        this.maximumDepth = -100.0
         this.didDampenLastFrame = {
             forward: false,
         }
@@ -164,10 +164,10 @@ export class Submarine {
         }
         const setupGui = () => {
             const gui = new GUI()
-            const speedsFolder = gui.addFolder('Speeds')
-            speedsFolder.add(guiSpeeds, 'forward', 0.0, this.maximumSpeed.forward, 0.01).listen()
-            speedsFolder.add(guiSpeeds, 'angular', 0.0, this.maximumSpeed.angular, 0.001).listen()
-            speedsFolder.add(guiSpeeds, 'submersion', 0.0, Math.abs(this.maximumSpeed.submersion), 0.01).listen()
+            const speedsFolder = gui.addFolder('Velocities')
+            speedsFolder.add(guiVelocities, 'forward', 0.0, this.maximumVelocity.forward, 0.01).listen()
+            speedsFolder.add(guiVelocities, 'angular', 0.0, this.maximumVelocity.angular, 0.001).listen()
+            speedsFolder.add(guiVelocities, 'submersion', 0.0, Math.abs(this.maximumVelocity.submersion), 0.01).listen()
             speedsFolder.open()
             const motionStateFolder = gui.addFolder('Motion States')
             motionStateFolder.add(guiMotionState, 'forward').listen()
@@ -192,7 +192,7 @@ export class Submarine {
      * @returns the effective maximum forward speed based on the current depth, the deeper we are, the less the speed
      */
     effectiveMaximumForwardSpeed() {
-        return (0.5 * this.maximumSpeed.forward) + ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumSpeed.forward)
+        return (0.5 * this.maximumVelocity.forward) + ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumVelocity.forward)
     }
     accelerateForward() {
         const currentForwardHoldTime = this.holdTime.forward
@@ -236,7 +236,7 @@ export class Submarine {
 
     //left and right rotation: 6
     effectiveMaximumAngularSpeed() {
-        return (0.5 * this.maximumSpeed.angular) + ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumSpeed.angular)
+        return (0.5 * this.maximumVelocity.angular) + ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumVelocity.angular)
     }
     rotateYawLeft() {
         const currentRotateYawHoldTime = this.holdTime.rotation.yaw
@@ -340,11 +340,11 @@ export class Submarine {
         const isAscending = this.holdTime.submersion < 0
         if (isDiving) {
             //DM - D / DM - D0  *  MS
-            return ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * this.maximumSpeed.submersion
+            return ((this.maximumDepth - this.currentDepth()) / (this.maximumDepth - this.initialDepth)) * this.maximumVelocity.submersion
         }
         else if (isAscending) {
             //D0 - D / D0 - DM
-            return ((this.initialDepth - this.currentDepth()) / (this.initialDepth - this.maximumDepth)) * this.maximumSpeed.submersion
+            return ((this.initialDepth - this.currentDepth()) / (this.initialDepth - this.maximumDepth)) * this.maximumVelocity.submersion
         }
         return 0 // H = 0 anyway
         //(-50 - (-50) / 40)
@@ -355,11 +355,22 @@ export class Submarine {
     accelerateDiving() {
         const currentSubmersionHoldTime = this.holdTime.submersion
         const tryIncreaseSubmersionHoldTime = () => {
+            if (Math.round(this.currentDepth()) == this.maximumDepth) {
+                if (currentSubmersionHoldTime > 0) {
+                    this.holdTime.submersion = currentSubmersionHoldTime - 1
+                    this.rotatePitch()
+                }
+                this.updateSubmersionMotionState(motionStates.idle)
+                return false
+            }
             if (currentSubmersionHoldTime < this.maximumHoldTime.submersion) {
                 this.holdTime.submersion = currentSubmersionHoldTime + 1
                 return true
             }
-            return false
+            else {
+                this.updateSubmersionMotionState(deceleratingBy.deeperWater)
+                return false
+            }
         }
         if (tryIncreaseSubmersionHoldTime()) {
             const newSubmersionHoldTime = this.holdTime.submersion
@@ -373,14 +384,6 @@ export class Submarine {
                 this.updateSubmersionMotionState(deceleratingBy.oppositeDirection)
             }
             this.rotatePitch()
-        } else {
-            const toleranceDueToNotHittingMaximumDepth = 0.1;
-            if (Math.abs(this.currentDepth()) < (Math.abs(this.maximumDepth) - toleranceDueToNotHittingMaximumDepth)) {
-                this.updateSubmersionMotionState(deceleratingBy.deeperWater)
-            } else {
-                this.updateSubmersionMotionState(motionStates.idle)
-                this.neutralizePitch()
-            }
         }
     }
     neutralizeDiving() {
@@ -407,11 +410,22 @@ export class Submarine {
     accelerateAscending() {
         const currentSubmersionHoldTime = this.holdTime.submersion
         const tryDecreaseSubmersionHoldTime = () => {
-            if (currentSubmersionHoldTime > - this.maximumHoldTime.submersion) {
+            if (Math.round(this.currentDepth()) == this.initialDepth) {
+                if (currentSubmersionHoldTime < 0) {
+                    this.holdTime.submersion = currentSubmersionHoldTime + 1
+                    this.rotatePitch()
+                }
+                this.updateForwardMotionState(motionStates.idle)
+                return false
+            }
+            if (currentSubmersionHoldTime >- this.maximumHoldTime.submersion) {
                 this.holdTime.submersion = currentSubmersionHoldTime - 1
                 return true
             }
-            return false
+            else {
+                this.updateForwardMotionState(deceleratingBy.closerToSurface)
+                return false
+            }
         }
         if (tryDecreaseSubmersionHoldTime()) {
             const newSubmersionHoldTime = this.holdTime.submersion
@@ -425,14 +439,6 @@ export class Submarine {
                 this.updateSubmersionMotionState(deceleratingBy.oppositeDirection)
             }
             this.rotatePitch()
-        } else {
-            const toleranceDueToNotHittingInitialDepth = 0.1;
-            if (Math.abs(this.currentDepth()) > (Math.abs(this.initialDepth) + toleranceDueToNotHittingInitialDepth)) {
-                this.updateSubmersionMotionState(deceleratingBy.closerToSurface)    //even though we've hit the maximum hold time for going upward, but getting closer to the surface reduces the effective maximum speed for y axis
-            } else {
-                this.updateSubmersionMotionState(motionStates.idle)
-                this.neutralizePitch()
-            }
         }
     }
     /**
@@ -440,22 +446,6 @@ export class Submarine {
      */
     rotatePitch() {
         this.submarineMesh.rotation.x = (this.holdTime.submersion / this.maximumHoldTime.submersion) * -this.maximumSelfRotation.pitch
-    }
-    /**
-     * when hitting initial or maxium depth but still holding Q or E (still preserving the submersion hold time at max)
-     */
-    neutralizePitch() {
-        const currentPitch = this.submarineMesh.rotation.x
-        if (currentPitch == 0) {
-            return
-        }
-        const step = this.maximumSelfRotation.pitch / this.maximumHoldTime.rotation.yaw //as we know by calling this function the hold time would have been at its max (try increase returning false)
-        if (currentPitch > 0) {
-            this.submarineMesh.rotation.x -= step
-        }
-        else {
-            this.submarineMesh.rotation.x += step
-        }
     }
     updateSubmersionMotionState(newState) {
         this.motionState.submersion = newState
@@ -477,6 +467,7 @@ export class Submarine {
         considerMovingForward()
         considerDiving()
         this.updateGui(forwardSpeed, angularSpeed, submersionSpeed)
+        // console.log(Math.round(-10.5))
     }
 
     considerDamping() {
@@ -506,9 +497,9 @@ export class Submarine {
         considerDampingSubmersion()
     }
     updateGui(forwardSpeed, angularSpeed, submersionSpeed) {
-        guiSpeeds.forward = forwardSpeed
-        guiSpeeds.submersion = Math.abs(submersionSpeed)
-        guiSpeeds.angular = Math.abs(angularSpeed)
+        guiVelocities.forward = forwardSpeed
+        guiVelocities.submersion = Math.abs(submersionSpeed)
+        guiVelocities.angular = Math.abs(angularSpeed)
         guiMotionState.forward = this.motionState.forward.description
         guiMotionState.angular = this.motionState.rotation.yaw.description + (this.holdTime.rotation.yaw > 0 ? ' left' : this.holdTime.rotation.yaw < 0 ? ' right' : '')
         guiMotionState.submersion = this.motionState.submersion.description + (this.holdTime.submersion > 0 ? ' down' : this.holdTime.submersion < 0 ? ' up' : '')
