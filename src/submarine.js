@@ -407,7 +407,7 @@ export class Submarine {
             if (currentSubmersionHoldTime < this.maximumHoldTime.submersion) {
                 const isAscending = currentSubmersionHoldTime < 0
                 if (isAscending) {
-                    this.holdTime.submersion = currentSubmersionHoldTime + 2
+                    this.holdTime.submersion = currentSubmersionHoldTime + 1
                 } else {
                     this.holdTime.submersion = currentSubmersionHoldTime + 1
                 }
@@ -425,7 +425,7 @@ export class Submarine {
             if (Math.abs(newSubmersionHoldTime) > Math.abs(oldSubmersionHoldTime)) {
                 this.updateSubmersionMotionState(motionStates.inMotion.accelerating)
             }
-            //-180 -> -178 => |new| < |old|
+            //-180 -> -179 => |new| < |old|
             else {
                 this.updateSubmersionMotionState(deceleratingBy.oppositeDirection)
             }
@@ -468,7 +468,7 @@ export class Submarine {
             if (currentSubmersionHoldTime > - this.maximumHoldTime.submersion) {
                 const isDiving = currentSubmersionHoldTime > 0
                 if (isDiving) {
-                    this.holdTime.submersion = currentSubmersionHoldTime - 2
+                    this.holdTime.submersion = currentSubmersionHoldTime - 1
                 }
                 else {
                     this.holdTime.submersion = currentSubmersionHoldTime - 1
@@ -487,7 +487,7 @@ export class Submarine {
             if (Math.abs(newSubmersionHoldTime) > Math.abs(oldSubmersionHoldTime)) {
                 this.updateSubmersionMotionState(motionStates.inMotion.accelerating)
             }
-            //180 -> 178 => |new| < |old|
+            //180 -> 179 => |new| < |old|
             else {
                 this.updateSubmersionMotionState(deceleratingBy.oppositeDirection)
             }
