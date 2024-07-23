@@ -81,7 +81,7 @@ export class Submarine {
         this.maximumVelocity = {
             forward: 1.0,
             submersion: -0.5,
-            angular: 0.005, //yaw rotation velocity... 0.28 degrees per frame => 16.8 degrees per second
+            angular: 0.004, //yaw rotation velocity... 0.28 degrees per frame => 16.8 degrees per second
         }
         this.maximumSelfRotation = {
             roll: Math.PI / 24, // 7.5 degrees
@@ -176,7 +176,7 @@ export class Submarine {
             const gui = new GUI()
             const speedsFolder = gui.addFolder('Velocities')
             speedsFolder.add(guiVelocities, 'forward', 0.0, this.maximumVelocity.forward, 0.01).listen()
-            speedsFolder.add(guiVelocities, 'angular', 0.0, this.maximumVelocity.angular, 0.001).listen()
+            speedsFolder.add(guiVelocities, 'angular', 0.0, this.maximumVelocity.angular, 0.0001).listen()
             speedsFolder.add(guiVelocities, 'submersion', 0.0, Math.abs(this.maximumVelocity.submersion), 0.01).listen()
             speedsFolder.open()
             const motionStateFolder = gui.addFolder('Motion States')
