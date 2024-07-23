@@ -465,9 +465,10 @@ export class Submarine {
                 this.updateSubmersionMotionState(motionStates.idle)
                 return false
             }
-            if (currentSubmersionHoldTime > - this.maximumHoldTime.submersion) {
+            if (currentSubmersionHoldTime >- this.maximumHoldTime.submersion) {
                 const isDiving = currentSubmersionHoldTime > 0
                 if (isDiving) {
+                    //same if for now.... might get deleted
                     this.holdTime.submersion = currentSubmersionHoldTime - 1
                 }
                 else {
