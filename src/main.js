@@ -2,7 +2,6 @@ import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js'
 import { Submarine } from './submarine'
 import { AppCamera } from './cameras/app_camera'
 import { MainCamera } from './cameras/main_camera'
-import { SubmarineCamera } from './cameras/submarine_camera'
 import { AppSky } from './sky'
 import { AppSun } from './sun'
 import { AppWater } from './water'
@@ -10,7 +9,8 @@ import { ACESFilmicToneMapping, AmbientLight, DirectionalLight, FogExp2, Mesh, M
 import { Underwater } from './underwater/underwater'
 
 
-class SubmarineSimulationApp {
+export class SubmarineSimulationApp {
+    static renderer
     constructor() {
         this.setupRenderer()
         this.setupMainCamera()
@@ -24,7 +24,7 @@ class SubmarineSimulationApp {
         renderer.setPixelRatio(window.devicePixelRatio)
         renderer.toneMapping = ACESFilmicToneMapping
         renderer.toneMappingExposure = 0.5
-        this.renderer = renderer
+        SubmarineSimulationApp.renderer = renderer
     }
     setupMainCamera() {
         this.cameras = []
@@ -32,7 +32,7 @@ class SubmarineSimulationApp {
         const mainCamera = new MainCamera()
         mainCamera.position.set(0, 30, 100)
         mainCamera.lookAt(0, 0, 0)
-        mainCamera.setupControls(this.renderer)
+        mainCamera.setupControls(SubmarineSimulationApp.renderer)
         this.mainCamera = mainCamera
         this.cameras.push(mainCamera)
     }
@@ -63,48 +63,37 @@ class SubmarineSimulationApp {
         const sky = new AppSky()
         scene.add(sky)
 
-        const sun = new AppSun(scene, this.renderer, sky, water, underwater)
+        const sun = new AppSun(scene, SubmarineSimulationApp.renderer, sky, water, underwater)
         sun.update()
         // Submarine
         let submarine = new Submarine()
-        submarine.load().then(submarineMesh => {
-            scene.add(submarineMesh)
+        submarine.load().then(submarineStuff => {
+            scene.add(submarineStuff.submarineMesh)
             animatableComponents.push(submarine)
-            const submarineCamera = new SubmarineCamera()
-            submarineCamera.setupControls(this.renderer)
-            submarineMesh.add(submarineCamera)
-            this.cameras.push(submarineCamera)
-            this.animatableComponents.push(submarineCamera)
-            // underwater.updateCameraPosition(submarineCamera)
-            // scene.add(underwater)
-            // this.underwater = underwater
+            this.cameras.push(submarineStuff.submarineCamera)
         })
         
-        // GUI        
+        // GUI 
         // const gui = new GUI()
         // water.showGui(gui)
         // sun.showGui(gui)
-        
     }
 
     start() {
-        this.renderer.setAnimationLoop(this.animate)
+        SubmarineSimulationApp.renderer.setAnimationLoop(this.animate)
     }
     animate(time) {
         time *= 0.001  // حول الوقت من ميلي ثانية ل ثانية
-        this.ensureResponsiveDisplay() //مشان وقت نبعبص بالنافذة... عادي ما تقربي عليه
+        this.ensureResponsiveDisplay() //مشان وقت نبعبص بالنافذة
         
         for (let animtableComponent of this.animatableComponents) {
             animtableComponent.animate(time)
         }
-        // if (this.underwater) {
-        //     this.underwater.updateCameraPosition(this.cameras[1].position)
-        // }
         this.render()
     }
     
     render() {
-        this.renderer.render(this.scene, this.cameras[1] ? this.cameras[1] : this.mainCamera) //كاميرا الغواصة
+        SubmarineSimulationApp.renderer.render(this.scene, this.cameras[1] ? this.cameras[1] : this.mainCamera) //كاميرا الغواصة
     }
     ensureResponsiveDisplay() {
         const resized = this.ensureRenderingAtFullResolution()
@@ -120,18 +109,18 @@ class SubmarineSimulationApp {
         })
     }
     getAspectRatio() {
-        const canvas = this.renderer.domElement
+        const canvas = SubmarineSimulationApp.renderer.domElement
         return canvas.clientWidth / canvas.clientHeight
     }
     ensureRenderingAtFullResolution() {
-        const canvas = this.renderer.domElement
+        const canvas = SubmarineSimulationApp.renderer.domElement
         const displayWidth = canvas.clientWidth
         const displayHeight = canvas.clientHeight
         const widthBeingRendered = canvas.width
         const heightBeingRendered = canvas.height
         const needsResize = displayWidth !== widthBeingRendered || displayHeight != heightBeingRendered
         if (needsResize) {
-            this.renderer.setSize(displayWidth, displayHeight, false)
+            SubmarineSimulationApp.renderer.setSize(displayWidth, displayHeight, false)
         }
         return needsResize
     }

@@ -1,5 +1,7 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { GUI } from 'dat.gui'
+import { SubmarineCamera } from './cameras/submarine_camera'
+import {SubmarineSimulationApp} from './main'
 const motionStates = Object.freeze({
     idle: Symbol('Idle'),
     inMotion:
@@ -53,7 +55,7 @@ export class Submarine {
     constructor() {
         //رسم
         this.modelPath = '../models/submarine.glb'
-        this.submarineMesh = null
+        this.mesh = null
 
         //حركة
         this.motionState = {
@@ -96,13 +98,17 @@ export class Submarine {
         const loader = new GLTFLoader()
         return new Promise((resolve) => {
             loader.load(this.modelPath, (gltf) => {
-                const submarineMesh = gltf.scene
-                submarineMesh.castShadow = true
-                submarineMesh.position.set(0, this.initialDepth, 0)
-                submarineMesh.scale.setScalar(10)
-                this.submarineMesh = submarineMesh
+                this.mesh = gltf.scene
+                this.mesh.castShadow = true
+                this.mesh.position.set(0, this.initialDepth, 0)
+                this.mesh.scale.setScalar(10)
+                this.camera = new SubmarineCamera()
+                this.mesh.add(this.camera)
                 this.setup()
-                resolve(submarineMesh)
+                resolve({
+                    'submarineMesh': this.mesh,
+                    'submarineCamera': this.camera,
+                })
             })
         })
     }
@@ -135,6 +141,10 @@ export class Submarine {
                     case 'q':
                     case 'Q':
                         this.accelerateDiving()
+                        break
+                    case 'o':
+                    case 'O':
+                        this.camera.restoreDefaultView()
                         break
                 }
             })
@@ -181,8 +191,13 @@ export class Submarine {
             positionFolder.add(guiPosition, 'z', 0.0).listen()
             positionFolder.open()
         }
+        const setupCamera = () => {
+            this.camera.setupControls()
+            this.camera.setDefaultView()
+        }
         setupInteractivity()
         setupGui()
+        setupCamera()
     }
 
 
@@ -339,7 +354,7 @@ export class Submarine {
      * self rotation around Z, as a result of steering left or right (A and B)
      */
     rotateRoll() {
-        this.submarineMesh.rotation.z = (this.holdTime.rotation.yaw / this.maximumHoldTime.rotation.yaw) * this.maximumSelfRotation.roll
+        this.mesh.rotation.z = (this.holdTime.rotation.yaw / this.maximumHoldTime.rotation.yaw) * this.maximumSelfRotation.roll
     }
 
     //submersion control operations: 8,
@@ -347,13 +362,13 @@ export class Submarine {
     * @returns D, that is the current depth and ensures it doesn't go beyond the maximum depth and minimum / initial depth
     */
     currentClampedDepth() {
-        if (Math.abs(this.submarineMesh.position.y) > Math.abs(this.maximumDepth)) {
-            this.submarineMesh.position.y = this.maximumDepth
+        if (Math.abs(this.mesh.position.y) > Math.abs(this.maximumDepth)) {
+            this.mesh.position.y = this.maximumDepth
         }
-        if (Math.abs(this.submarineMesh.position.y) < Math.abs(this.initialDepth)) {
-            this.submarineMesh.position.y = this.initialDepth
+        if (Math.abs(this.mesh.position.y) < Math.abs(this.initialDepth)) {
+            this.mesh.position.y = this.initialDepth
         }
-        return this.submarineMesh.position.y
+        return this.mesh.position.y
     }
     effectiveMaximumSubmersionVelocity() {
         //-10 -> -50
@@ -364,8 +379,12 @@ export class Submarine {
             return ((this.maximumDepth - this.currentClampedDepth()) / (this.maximumDepth - this.initialDepth)) * this.maximumVelocity.submersion
         }
         else if (isAscending) {
-            //D0 - D / D0 - DM  *  MS
-            return ((this.initialDepth - this.currentClampedDepth()) / (this.initialDepth - this.maximumDepth)) * this.maximumVelocity.submersion
+            //D0 - D / D0 - DM  *  MS    -0.5   -0.1
+            var ems = (this.initialDepth - this.currentClampedDepth()) / (this.initialDepth - this.maximumDepth) * this.maximumVelocity.submersion
+            if (ems > 0.1 * this.maximumVelocity.submersion) {
+                ems = 0.1 * this.maximumVelocity.submersion
+            }
+            return ems
         }
         return 0 // H = 0 anyway
         //(-50 - (-50) / 40)
@@ -480,31 +499,32 @@ export class Submarine {
      * any update to the submersion hold time caused by either diving, ascending or damping, must call this method
      */
     rotatePitch() {
-        this.submarineMesh.rotation.x = (this.holdTime.submersion / this.maximumHoldTime.submersion) * -this.maximumSelfRotation.pitch
+        this.mesh.rotation.x = (this.holdTime.submersion / this.maximumHoldTime.submersion) * -this.maximumSelfRotation.pitch
     }
     updateSubmersionMotionState(newState) {
         this.motionState.submersion = newState
     }
     animate() {
-        const submarineMesh = this.submarineMesh
+        const mesh = this.mesh
         this.considerDamping()
         const angularVelocity = this.angularVelocity()
         const forwardVelocity = this.forwardVelocity()
         const submersionVelocity = this.submersionVelocity()
         const considerRotating = () => {
-            submarineMesh.rotation.y += angularVelocity
+            mesh.rotation.y += angularVelocity
         }
         const considerMovingForward = () => {
-            const yAngle = submarineMesh.rotation.y
-            submarineMesh.position.z -= Math.cos(yAngle) * forwardVelocity
-            submarineMesh.position.x -= Math.sin(yAngle) * forwardVelocity
+            const yAngle = mesh.rotation.y
+            mesh.position.z -= Math.cos(yAngle) * forwardVelocity
+            mesh.position.x -= Math.sin(yAngle) * forwardVelocity
         }
         const considerDiving = () => {
-            submarineMesh.position.y += submersionVelocity
+            mesh.position.y += submersionVelocity
         }
         considerRotating()
         considerMovingForward()
         considerDiving()
+        this.camera.animate(mesh.position, mesh.rotation.z / this.maximumSelfRotation.roll)
         this.updateGui(forwardVelocity, angularVelocity, submersionVelocity)
     }
 
@@ -541,7 +561,7 @@ export class Submarine {
         guiMotionState.forward = this.motionState.forward.description
         guiMotionState.angular = (this.holdTime.rotation.yaw > 0 ? 'Left - ' : this.holdTime.rotation.yaw < 0 ? 'Right - ' : '') + this.motionState.rotation.yaw.description
         guiMotionState.submersion = (this.holdTime.submersion > 0 ? 'Diving - ' : this.holdTime.submersion < 0 ? 'Ascending - ' : '') + this.motionState.submersion.description
-        const { x, y, z } = this.submarineMesh.position
+        const { x, y, z } = this.mesh.position
         guiPosition.x = x
         guiPosition.y = y
         guiPosition.z = z
