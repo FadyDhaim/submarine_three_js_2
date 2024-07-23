@@ -63,7 +63,7 @@ export class SubmarineSimulationApp {
         const sky = new AppSky()
         scene.add(sky)
 
-        const sun = new AppSun(scene, SubmarineSimulationApp.renderer, sky, water, underwater)
+        const sun = new AppSun(scene, SubmarineSimulationApp.renderer, sky, water)
         sun.update()
         // Submarine
         let submarine = new Submarine()

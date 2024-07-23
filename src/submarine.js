@@ -1,7 +1,6 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { GUI } from 'dat.gui'
 import { SubmarineCamera } from './cameras/submarine_camera'
-import {SubmarineSimulationApp} from './main'
 const motionStates = Object.freeze({
     idle: Symbol('Idle'),
     inMotion:
@@ -80,7 +79,7 @@ export class Submarine {
             }
         }
         this.maximumVelocity = {
-            forward: 3.0,
+            forward: 1.0,
             submersion: -0.5,
             angular: 0.005, //yaw rotation velocity... 0.28 degrees per frame => 16.8 degrees per second
         }
@@ -252,7 +251,7 @@ export class Submarine {
  * @returns the effective maximum forward speed based on the current depth, the deeper we are, the less the speed
  */
     effectiveMaximumForwardVelocity() {
-        return (0.5 * this.maximumVelocity.forward) + ((this.maximumDepth - this.currentClampedDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumVelocity.forward)
+        return (0.3 * this.maximumVelocity.forward) + ((this.maximumDepth - this.currentClampedDepth()) / (this.maximumDepth - this.initialDepth)) * (0.7 * this.maximumVelocity.forward)
     }
     forwardVelocity() {
         return (this.holdTime.forward / this.maximumHoldTime.forward) * this.effectiveMaximumForwardVelocity()
@@ -344,7 +343,7 @@ export class Submarine {
         this.motionState.rotation.yaw = newState
     }
     effectiveMaximumAngularVelocity() {
-        return (0.5 * this.maximumVelocity.angular) + ((this.maximumDepth - this.currentClampedDepth()) / (this.maximumDepth - this.initialDepth)) * (0.5 * this.maximumVelocity.angular)
+        return (0.3 * this.maximumVelocity.angular) + ((this.maximumDepth - this.currentClampedDepth()) / (this.maximumDepth - this.initialDepth)) * (0.7 * this.maximumVelocity.angular)
     }
     angularVelocity() {
         //positive or negative depends on the sign of yaw rotation hold time, the other two are always positive
@@ -522,11 +521,14 @@ export class Submarine {
         const considerDiving = () => {
             mesh.position.y += submersionVelocity
         }
+        const updateDependencies = () => {
+            this.camera.update(mesh.position, mesh.rotation.z / this.maximumSelfRotation.roll, mesh.rotation.x / this.maximumSelfRotation.pitch)
+            this.updateGui(forwardVelocity, angularVelocity, submersionVelocity)
+        }
         considerRotating()
         considerMovingForward()
         considerDiving()
-        this.camera.animate(mesh.position, mesh.rotation.z / this.maximumSelfRotation.roll)
-        this.updateGui(forwardVelocity, angularVelocity, submersionVelocity)
+        updateDependencies()
     }
 
     considerDamping() {
