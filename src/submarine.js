@@ -499,6 +499,8 @@ export class Submarine {
      * any update to the submersion hold time caused by either diving, ascending or damping, must call this method
      */
     rotatePitch() {
+        //originally clock wise, as we go down, we want to invert the sign so we get a negative rotation (counter clock wise)
+        //when going up, H is negative and so is the negated maximum pitch, and thus the resultant rotation is positive (clockwise)
         this.mesh.rotation.x = (this.holdTime.submersion / this.maximumHoldTime.submersion) * -this.maximumSelfRotation.pitch
     }
     updateSubmersionMotionState(newState) {
@@ -529,6 +531,7 @@ export class Submarine {
         considerMovingForward()
         considerDiving()
         updateDependencies()
+        console.log(mesh.rotation.x)
     }
 
     considerDamping() {
