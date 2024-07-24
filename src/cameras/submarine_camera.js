@@ -1,6 +1,6 @@
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 import { AppCamera } from "./app_camera"
-import { Quaternion, Vector3 } from "three"
+import { Vector3 } from "three"
 import { SubmarineSimulationApp } from "../main"
 
 export class SubmarineCamera extends AppCamera {
